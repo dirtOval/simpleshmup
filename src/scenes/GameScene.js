@@ -58,6 +58,15 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBullets.push(new EnemyBullet(this, enemy.x - 30, enemy.y - 13))
   }
 
+  explosion(x, y) {
+    const explosion = this.physics.add.sprite(x, y, 'explosion');
+        explosion.setScale(2);
+        explosion.play('explode');
+        explosion.on('animationcomplete', function() {
+          explosion.destroy();
+        })
+  }
+
   create() {
     this.sky = this.add.tileSprite(500, 300, 1067, 600, 'sky');
     this.player = this.createPlayer();
@@ -68,12 +77,7 @@ export default class GameScene extends Phaser.Scene {
     //colliders
     this.physics.add.collider(this.player, this.enemies , (player, enemy) => {
       if (!this.isGameOver) {
-        const explosion = this.physics.add.sprite(this.player.x, this.player.y, 'explosion');
-        explosion.setScale(2);
-        explosion.play('explode');
-        explosion.on('animationcomplete', function() {
-          explosion.destroy();
-        })
+        this.explosion(this.player.x, this.player.y);
         player.setActive(false).setVisible(false);
         enemy.destroy();
         this.isGameOver = true;
@@ -81,24 +85,14 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.physics.add.collider(this.playerBullets, this.enemies, (bullet, enemy) => {
-      const explosion = this.physics.add.sprite(enemy.x, enemy.y, 'explosion');
-      explosion.setScale(2);
-      explosion.play('explode');
-      explosion.on('animationcomplete', function() {
-        explosion.destroy();
-      })
+      this.explosion(enemy.x, enemy.y);
       bullet.destroy();
       enemy.destroy();
       this.scoreLabel.add(10);
     })
 
     this.physics.add.collider(this.player, this.enemyBullets, (player, bullet) => {
-      const explosion = this.physics.add.sprite(player.x, player.y, 'explosion');
-      explosion.setScale(2);
-      explosion.play('explode');
-      explosion.on('animationcomplete', function() {
-        explosion.destroy();
-      })
+      this.explosion(this.player.x, this.player.y);
       bullet.destroy();
       player.setActive(false).setVisible(false);
     })

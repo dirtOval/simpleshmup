@@ -8,6 +8,11 @@ class Explosion extends Phaser.Physics.Arcade.Sprite {
 
       scene.add.existing(this);
       scene.physics.add.existing(this);
+
+      this.setScale(2);
+      this.on('addedtoscene', () => {
+        this.play('explode');
+      });
   }
 }
 
