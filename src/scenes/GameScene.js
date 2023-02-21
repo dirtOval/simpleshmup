@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 import Enemy from '../entities/Enemy.js';
-import Explosion from '../entities/Explosion.js';
+// import Explosion from '../entities/Explosion.js';
+import PlayerBullet from '../entities/PlayerBullet.js';
+import EnemyBullet from '../entities/EnemyBullet.js';
+import ScoreLabel  from '../ui/ScoreLabel.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -11,6 +14,10 @@ export default class GameScene extends Phaser.Scene {
     this.cursors = undefined;
     this.enemies = [];
     this.isGameOver = false;
+    this.playerBullets = [];
+    this.enemyBullets = [];
+    this.canShoot = true;
+    this.scoreLabel = undefined;
   }
 
   preload() {
@@ -30,14 +37,35 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createEnemy() {
-    this.enemies.push(new Enemy(this, 825, Math.floor(Math.random() * 550) + 50));
+    this.enemies.push(new Enemy(this, 825, Math.floor(Math.random() * 550) + 50, Math.floor(Math.random() * -150 - 100)));
+  }
+
+  createScoreLabel(x, y, score)
+	{
+		const style = { fontSize: '32px', fill: '#FFF' }
+		const label = new ScoreLabel(this, x, y, score, style)
+
+		this.add.existing(label)
+
+		return label
+	}
+
+  fireBullet() {
+    this.playerBullets.push(new PlayerBullet(this, this.player.x + 30, this.player.y - 13));
+  }
+
+  fireEnemyBullet(enemy) {
+    this.enemyBullets.push(new EnemyBullet(this, enemy.x - 30, enemy.y - 13))
   }
 
   create() {
     this.sky = this.add.tileSprite(500, 300, 1067, 600, 'sky');
     this.player = this.createPlayer();
-    this.createEnemy();
+    this.createEnemy(); //initial enemy on screen
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.scoreLabel = this.createScoreLabel(16, 16, 0)
+
+    //colliders
     this.physics.add.collider(this.player, this.enemies , (player, enemy) => {
       if (!this.isGameOver) {
         const explosion = this.physics.add.sprite(this.player.x, this.player.y, 'explosion');
@@ -52,16 +80,47 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
+    this.physics.add.collider(this.playerBullets, this.enemies, (bullet, enemy) => {
+      const explosion = this.physics.add.sprite(enemy.x, enemy.y, 'explosion');
+      explosion.setScale(2);
+      explosion.play('explode');
+      explosion.on('animationcomplete', function() {
+        explosion.destroy();
+      })
+      bullet.destroy();
+      enemy.destroy();
+      this.scoreLabel.add(10);
+    })
+
+    this.physics.add.collider(this.player, this.enemyBullets, (player, bullet) => {
+      const explosion = this.physics.add.sprite(player.x, player.y, 'explosion');
+      explosion.setScale(2);
+      explosion.play('explode');
+      explosion.on('animationcomplete', function() {
+        explosion.destroy();
+      })
+      bullet.destroy();
+      player.setActive(false).setVisible(false);
+    })
+
     this.anims.create({
       key: 'explode',
       frames: this.anims.generateFrameNumbers('explosion', {start: 0, end: 15}),
       frameRate: 20,
       repeat: 0
     })
+
+    //timer to spawn enemy
+    this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        this.createEnemy();
+      }
+    })
   }
 
   update() {
-
     //controls
     if (!this.isGameOver) {
       if (this.cursors.left.isDown) {
@@ -79,9 +138,41 @@ export default class GameScene extends Phaser.Scene {
       } else {
         this.player.setVelocityY(0);
       }
+
+      if (this.cursors.space.isDown) {
+        if (this.canShoot) {
+          this.fireBullet();
+          this.canShoot = false;
+          this.time.delayedCall(50, () => {
+            this.canShoot = true;
+          })
+        }
+      }
     }
 
+    //enemy shooting script
+    // for (let enemy of this.enemies) {
+    //   let delay = Math.floor(Math.random() * 1000 + 1000);
+    //   this.time.addEvent({
+    //     delay: delay,
+    //     loop: false,
+    //     repeat: 1,
+    //     callback: this.fireEnemyBullet(enemy)
+    //   })
+    // }
+    for (let enemy of this.enemies) {
+      let chance = Math.random() * 100;
+      if (chance > 30) {
+        enemy.shootBullet(this);
+      }
+    }
 
+    //interestingly this doesn't work
+    for (let bullet of this.playerBullets) {
+      if (bullet.x > 800) {
+        bullet.destroy();
+      }
+    }
     //background scroll effect
     this.sky.tilePositionX += 5;
   }
